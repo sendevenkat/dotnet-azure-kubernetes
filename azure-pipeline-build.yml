@@ -1,0 +1,60 @@
+name: DotnetWebappPipeline
+trigger: 
+  batch: true
+  branches:
+    include:
+    - master
+    - dev
+    exclude:
+    - Feature
+  paths:
+    exclude:
+    - README.md
+
+parameters:
+- name: ImageName 
+  displayName: ImageName 
+  type: string
+  default: windows-latest
+  values:
+  - windows-latest
+  - ubuntu-latest
+
+resources:
+- repo: self
+
+variables: 
+- group: BuildVars
+- group: ReleaseVars
+- name: ImageName
+  value: windows-latest
+
+stages:
+- stage: Build
+  displayName: Build & push to Acr
+  jobs:
+  - job: Build
+    displayName: Build and push stage
+    pool: 
+      vmImage: $(ImageName)
+      
+    steps:
+    - template: templates/DotnetBuild.yml
+    - template: templates/Publish.yml
+    - template: templates/Docker build&Push.yml
+ 
+
+- stage: 'DeployWebapp'
+  displayName: 'Deploy to webapp'
+  dependsOn: Build
+  condition:  succeeded()
+  jobs:
+  - deployment: 'DeployWebapp'
+    pool: 
+      vmImage: $(ImageName)      
+    environment: dev 
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - template: templates/Deploywebapp.yml
