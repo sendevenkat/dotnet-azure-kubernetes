@@ -1,0 +1,186 @@
+
+trigger: none
+
+parameters:  
+- name: ImageName 
+  displayName: ImageName 
+  type: string
+  default: windows-latest
+  values:
+  - windows-latest
+  - ubuntu-latest
+
+variables: 
+- group: BuildVars
+- group: ReleaseVars
+- name: ImageName
+  value: windows-latest
+
+stages:
+- stage: Build
+  displayName: Build & push to Acr
+  jobs:
+  - job: Build
+    displayName: Build and push stage
+    pool: 
+      vmImage: ${{parameters.ImageName}}
+      
+    steps:
+    - checkout: self
+    - task: CopyFiles@2
+      inputs:
+        SourceFolder: 'ManifestFiles/'
+        Contents: '**/*.yml'
+        TargetFolder: '$(Pipeline.Workspace)/manifests'
+        
+    - task: PublishPipelineArtifact@1
+      inputs:
+        targetPath: '$(Pipeline.Workspace)/manifests'
+        artifact: 'manifests'
+        publishLocation: 'pipeline'
+
+##################################################
+####  deploy in kubernetes
+##################################################    
+
+- stage: Deploy
+  displayName: Deploy stage
+  dependsOn: Build
+  jobs:
+  - deployment: Deploy
+    displayName: Deploy job
+    pool:
+      vmImage: ${{parameters.ImageName}}
+    environment: 'dev' #customize with your environment
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+             
+            - task: KubernetesManifest@1
+              displayName: Deploy to AKS
+              inputs:
+                  action: 'deploy'
+                  connectionType: 'azureResourceManager'
+                  azureSubscriptionConnection: '$(AzureServiceConnection)'
+                  azureResourceGroup: '$(RgName)'
+                  kubernetesCluster: '$(Clustername)'
+                  namespace: dev
+                  manifests: |
+                    $(Pipeline.Workspace)/manifests/*.yml
+                    $(Pipeline.Workspace)/manifests/MangodbManifests/*.yml
+                  
+####################################################################################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# name: DotnetWebappPipeline  
+
+# trigger: 
+#   batch: true
+#   branches:
+#     include:
+#     - master
+#     - dev
+#     exclude:
+#     - Feature
+#   paths:
+#     exclude:
+#     - README.md
+
+# parameters:  
+# - name: ImageName 
+#   displayName: ImageName 
+#   type: string
+#   default: windows-latest
+#   values:
+#   - windows-latest
+#   - ubuntu-latest
+
+# variables: 
+# - group: BuildVars
+# - group: ReleaseVars
+# - name: ImageName
+#   value: windows-latest
+
+# stages:
+# - stage: Build
+#   displayName: Build & push to Acr
+#   jobs:
+#   - job: Build
+#     displayName: Build and push stage
+#     pool: 
+#       vmImage: ${{parameters.ImageName}}
+      
+#     steps:
+#     - checkout: self
+#     - template: templates/DotnetBuild.yml
+#     - template: templates/Publish.yml
+#     - template: templates/Docker build&Push.yml
+ 
+# ################################################
+# #### Deploy webapp
+# ################################################
+
+# - stage: 'DeployWebapp'
+#   displayName: 'Deploy to webapp'
+#   dependsOn: Build
+#   condition:  succeeded()
+#   jobs:
+#   - deployment: 'DeployWebapp'
+#     pool: 
+#       vmImage: $(ImageName)      
+#     environment: dev 
+#     strategy:
+#       runOnce:
+#         deploy:
+#           steps:
+#           - template: templates/Deploywebapp.yml
+
+
+############################################################################################
+                  
+        
+     
+          
+           
